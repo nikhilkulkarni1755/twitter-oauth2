@@ -1,0 +1,17 @@
+[project]
+name = "twitter-cli"
+version = "0.1.0"
+description = "Post tweets from your terminal using OAuth 2.0 PKCE"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1.7",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+twitter-cli = "twitter_cli.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
