@@ -119,6 +119,9 @@ def refresh_access_token() -> str:
 
     refresh_token = tokens["refresh_token"]
     client_id = config["client_id"]
+    client_secret = config["client_secret"]
+
+    auth = (client_id, client_secret)
 
     data = {
         "refresh_token": refresh_token,
@@ -129,6 +132,7 @@ def refresh_access_token() -> str:
     try:
         response = requests.post(
             "https://api.x.com/2/oauth2/token",
+            auth=auth,
             data=data,
             timeout=10,
         )
