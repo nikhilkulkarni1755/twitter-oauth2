@@ -1,10 +1,12 @@
-# Twitter CLI - OAuth 2.0 PKCE
+# Twitter CLI - OAuth 2.0 PKCE with Media Support
 
-Post tweets from your terminal using Twitter's OAuth 2.0 Authorization Code Flow with PKCE.
+Post tweets from your terminal using Twitter's OAuth 2.0 Authorization Code Flow with PKCE, plus optional media support (images/videos) via OAuth 1.0a.
 
 ## Features
 
 - **Browser-based authentication** - One-time OAuth 2.0 PKCE flow with browser authorization
+- **Text tweets** - Post text-only tweets via OAuth 2.0
+- **Media tweets** - Post tweets with images and videos via OAuth 1.0a (requires elevated access)
 - **Automatic token refresh** - Access tokens are automatically refreshed when expired
 - **Secure storage** - Credentials stored with restricted file permissions (0o600)
 - **Simple CLI** - Easy-to-use command-line interface with Click
@@ -25,6 +27,8 @@ Post tweets from your terminal using Twitter's OAuth 2.0 Authorization Code Flow
 
 ## Installation
 
+### Basic Installation (Text-only tweets)
+
 ```bash
 # Clone or download this project
 cd twitter-cli
@@ -34,6 +38,13 @@ uv sync
 
 # Install the CLI tool in editable mode
 uv pip install -e .
+```
+
+### With Media Support (Images/Videos)
+
+```bash
+# Install with media support (includes tweepy)
+uv pip install -e ".[media]"
 ```
 
 ## Setup - Get Your Credentials
@@ -106,6 +117,42 @@ Posting tweet...
  Tweet posted: https://x.com/yourhandle/status/1234567890
 ```
 
+### Post Tweets with Media (Images/Videos)
+
+**Setup (one-time):** Configure OAuth 1.0a credentials for media posting:
+
+```bash
+twitter-cli auth-media
+```
+
+You'll be prompted for OAuth 1.0a credentials from [developer.x.com/en/portal/dashboard](https://developer.x.com/en/portal/dashboard):
+- Consumer Key (API Key)
+- Consumer Secret (API Key Secret)
+- Access Token
+- Access Token Secret
+
+**Post tweets with media:**
+
+```bash
+# Single image
+twitter-cli tweet-media "Check this out!" /pictures/photo.jpg
+
+# Multiple images
+twitter-cli tweet-media "Great photos!" /pictures/photo1.jpg /pictures/photo2.png
+
+# Video
+twitter-cli tweet-media "Watch this!" /videos/clip.mp4
+
+# Mixed media
+twitter-cli tweet-media "My collection" /pictures/photo.jpg /videos/video.mp4
+```
+
+**Supported formats:**
+- Images: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` (max 15MB)
+- Videos: `.mp4`, `.mov` (max 512MB)
+
+**Requirements:** Media posting needs **elevated API access**. Request it at [developer.x.com/en/portal/product](https://developer.x.com/en/portal/product).
+
 ### Check Authentication Status
 
 ```bash
@@ -121,7 +168,7 @@ Refresh token: valid
 Scopes: tweet.read tweet.write users.read offline.access
 ```
 
-### Logout
+### Logout (Text Tweets)
 
 ```bash
 twitter-cli logout
@@ -131,6 +178,16 @@ This will:
 - Delete stored tokens from `~/.twitter_cli/tokens.json`
 - Keep your client credentials (so you can auth again without re-entering them)
 - Require you to authenticate again to post tweets
+
+### Clear Media Credentials
+
+```bash
+twitter-cli logout-media
+```
+
+This will:
+- Delete stored OAuth 1.0a credentials from `~/.twitter_cli/media_credentials.json`
+- Require you to run `twitter-cli auth-media` again to post media
 
 ## Usage in Scripts
 
@@ -170,12 +227,21 @@ else:
 
 Your authentication data is stored securely in your home directory:
 
-- **`~/.twitter_cli/config.json`** - Your Client ID and Client Secret
+### OAuth 2.0 (Text Tweets)
+
+- **`~/.twitter_cli/config.json`** - Your OAuth 2.0 Client ID and Client Secret
   - Permissions: 0o600 (owner read/write only)
 
-- **`~/.twitter_cli/tokens.json`** - Your access and refresh tokens
+- **`~/.twitter_cli/tokens.json`** - Your OAuth 2.0 access and refresh tokens
   - Permissions: 0o600 (owner read/write only)
   - Automatically updated when tokens are refreshed
+
+### OAuth 1.0a (Media Posting)
+
+- **`~/.twitter_cli/media_credentials.json`** - Your OAuth 1.0a credentials (optional)
+  - Permissions: 0o600 (owner read/write only)
+  - Only created if you use `twitter-cli auth-media` command
+  - Contains: Consumer Key, Consumer Secret, Access Token, Access Token Secret
 
 ## OAuth 2.0 Flow
 
@@ -241,21 +307,23 @@ You've exceeded Twitter's rate limits. Wait a few minutes before posting again.
   - ~300 tweets per 3 hours per user
   - Tweet lookup: 900 requests per 15 minutes
 
-- **Text Only** - Current version posts text-only tweets
-  - Media upload can be added in future versions
+- **Media Access** - Media posting requires elevated API access from Twitter
+  - Must request elevation at [developer.x.com/en/portal/product](https://developer.x.com/en/portal/product)
+  - Dual authentication: OAuth 2.0 for text tweets, OAuth 1.0a for media
 
-- **Platform** - Requires local HTTP server on port 8085 for OAuth callback
+- **Platform** - Requires local HTTP server on port 8085 for OAuth 2.0 callback
 
 ## Future Enhancements
 
 Possible additions:
-- Image/video upload support
 - Thread/conversation support
 - Delete tweets
 - Reply to tweets
 - Like/retweet functionality
-- Media attachment support
+- Direct message support
 - Configurable refresh token handling
+- Custom port configuration for OAuth callback
+- Batch tweet posting
 
 ## Contributing
 

@@ -30,3 +30,12 @@ main.py
 
 # OS files
 Thumbs.db
+
+# User media files
+/pictures/
+/videos/
+
+# Twitter CLI credentials (local storage)
+# These are stored in ~/.twitter_cli/ and should NEVER be committed
+~/.twitter_cli/
+.twitter_cli/
