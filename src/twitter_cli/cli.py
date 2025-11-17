@@ -370,5 +370,313 @@ def logout_media():
         raise SystemExit(1)
 
 
+# Auto-tweet commands
+import sys
+import os
+
+# Add Auto-Tweet to path if available
+auto_tweet_path = os.path.join(os.path.dirname(__file__), '../../Auto-Tweet')
+if os.path.exists(auto_tweet_path):
+    sys.path.insert(0, auto_tweet_path)
+
+
+@cli.command()
+@click.option(
+    "--angle",
+    default=None,
+    help="Optional tweet angle. If not provided, generates one from Kubernetes docs",
+)
+def auto_tweet_once(angle: str):
+    """
+    Generate and post a single tweet based on Kubernetes documentation.
+
+    Uses local Qwen LLM to generate a novel angle and tweet from Kubernetes docs.
+    Tracks angles and tweets to avoid repetition.
+    """
+    try:
+        if not token_manager.is_authenticated():
+            click.echo(
+                "✗ Not authenticated. Run 'twitter-cli auth' first.", err=True
+            )
+            raise SystemExit(1)
+
+        import sys
+        from pathlib import Path
+
+        # Add Auto-Tweet to path
+        auto_tweet_path = str(Path(__file__).parent.parent.parent / "Auto-Tweet")
+        if auto_tweet_path not in sys.path:
+            sys.path.insert(0, auto_tweet_path)
+
+        from auto_tweeter import AutoTweeter
+
+        click.echo("Initializing auto-tweeter...")
+        auto_tweeter = AutoTweeter()
+
+        # Check LLM health
+        click.echo("Checking Qwen LLM connection...")
+        if not auto_tweeter.qwen.health_check():
+            click.echo(
+                "✗ Cannot connect to Qwen LLM. Ensure LMStudio is running at http://192.168.1.98:1234/v1",
+                err=True
+            )
+            raise SystemExit(1)
+
+        # Get access token
+        access_token = token_manager.get_valid_access_token()
+
+        # Generate tweet
+        click.echo("Fetching Kubernetes documentation...")
+        kubernetes_content = auto_tweeter.fetch_kubernetes_content()
+
+        if angle:
+            click.echo(f"Using provided angle: {angle}")
+        else:
+            click.echo("Generating novel tweet angle...")
+            angle = auto_tweeter.generate_tweet_angle(kubernetes_content)
+            click.echo(f"Angle: {angle}")
+
+        click.echo("Generating tweet from angle...")
+        tweet_text = auto_tweeter.qwen.generate_tweet_from_angle(angle)
+        click.echo(f"\nTweet:\n{tweet_text}\n")
+
+        if click.confirm("Post this tweet?"):
+            click.echo("Posting tweet...")
+            tweet_data = auto_tweeter.post_tweet(tweet_text, access_token, angle=angle)
+            tweet_id = tweet_data.get("id", "")
+
+            if tweet_id:
+                user_info = oauth.get_user_info(access_token)
+                username = user_info.get("username", "user")
+                tweet_url = api.get_tweet_url(tweet_id, username)
+                click.echo(f"✓ Tweet posted: {tweet_url}")
+            else:
+                click.echo("✓ Tweet posted successfully")
+        else:
+            click.echo("Tweet cancelled")
+
+    except RuntimeError as e:
+        click.echo(f"✗ Error: {e}", err=True)
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"✗ Unexpected error: {e}", err=True)
+        raise SystemExit(1)
+
+
+@cli.command()
+@click.option(
+    "--count",
+    default=1,
+    help="Number of tweets to generate and post (default 1)",
+)
+def auto_tweet_batch(count: int):
+    """
+    Generate and post multiple tweets automatically.
+
+    Each tweet will have a unique angle based on Kubernetes documentation.
+    """
+    try:
+        if not token_manager.is_authenticated():
+            click.echo(
+                "✗ Not authenticated. Run 'twitter-cli auth' first.", err=True
+            )
+            raise SystemExit(1)
+
+        import sys
+        from pathlib import Path
+
+        # Add Auto-Tweet to path
+        auto_tweet_path = str(Path(__file__).parent.parent.parent / "Auto-Tweet")
+        if auto_tweet_path not in sys.path:
+            sys.path.insert(0, auto_tweet_path)
+
+        from auto_tweeter import AutoTweeter
+
+        click.echo("Initializing auto-tweeter...")
+        auto_tweeter = AutoTweeter()
+
+        # Check LLM health
+        click.echo("Checking Qwen LLM connection...")
+        if not auto_tweeter.qwen.health_check():
+            click.echo(
+                "✗ Cannot connect to Qwen LLM. Ensure LMStudio is running at http://192.168.1.98:1234/v1",
+                err=True
+            )
+            raise SystemExit(1)
+
+        # Get access token
+        access_token = token_manager.get_valid_access_token()
+
+        click.echo(f"Generating and posting {count} tweet(s)...")
+        results = auto_tweeter.auto_tweet(access_token, count=count)
+
+        for i, result in enumerate(results, 1):
+            click.echo(f"\n[{i}/{count}]")
+            if result.get("success"):
+                tweet_text = result.get("tweet", "")[:60] + "..."
+                angle = result.get("angle", "")
+                click.echo(f"  Angle: {angle}")
+                click.echo(f"  Tweet: {tweet_text}")
+                click.echo("  ✓ Posted successfully")
+            else:
+                error = result.get("error", "Unknown error")
+                click.echo(f"  ✗ Error: {error}")
+
+        # Show stats
+        stats = auto_tweeter.get_stats()
+        click.echo(f"\nStats: {stats['total_tweets']} tweets posted, {stats['total_angles']} angles used")
+
+    except RuntimeError as e:
+        click.echo(f"✗ Error: {e}", err=True)
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"✗ Unexpected error: {e}", err=True)
+        raise SystemExit(1)
+
+
+@cli.command()
+@click.option(
+    "--hours",
+    default=None,
+    help="Comma-separated list of hours (0-23) to post tweets. E.g. '9,12,15,18'",
+)
+def auto_tweet_schedule(hours: str):
+    """
+    Schedule automatic hourly tweets.
+
+    Tweets will be generated from Kubernetes documentation and posted at specified times.
+    """
+    try:
+        if not token_manager.is_authenticated():
+            click.echo(
+                "✗ Not authenticated. Run 'twitter-cli auth' first.", err=True
+            )
+            raise SystemExit(1)
+
+        import sys
+        from pathlib import Path
+
+        # Add Auto-Tweet to path
+        auto_tweet_path = str(Path(__file__).parent.parent.parent / "Auto-Tweet")
+        if auto_tweet_path not in sys.path:
+            sys.path.insert(0, auto_tweet_path)
+
+        from auto_tweeter import AutoTweeter
+        from scheduler import TweetScheduler
+
+        click.echo("Initializing scheduler...")
+        auto_tweeter = AutoTweeter()
+
+        # Check LLM health
+        click.echo("Checking Qwen LLM connection...")
+        if not auto_tweeter.qwen.health_check():
+            click.echo(
+                "✗ Cannot connect to Qwen LLM. Ensure LMStudio is running at http://192.168.1.98:1234/v1",
+                err=True
+            )
+            raise SystemExit(1)
+
+        # Get access token
+        access_token = token_manager.get_valid_access_token()
+
+        # Parse hours
+        if hours:
+            try:
+                hour_list = [int(h.strip()) for h in hours.split(",")]
+                for h in hour_list:
+                    if not (0 <= h <= 23):
+                        raise ValueError(f"Invalid hour: {h}. Must be 0-23.")
+            except ValueError as e:
+                click.echo(f"✗ Invalid hours format: {e}", err=True)
+                raise SystemExit(1)
+        else:
+            # Default: every hour at minute 0
+            hour_list = None
+
+        scheduler = TweetScheduler(access_token, auto_tweeter=auto_tweeter)
+
+        if hour_list:
+            message = scheduler.schedule_multiple_hourly(hour_list)
+            click.echo(f"✓ {message}")
+        else:
+            message = scheduler.schedule_hourly_tweet()
+            click.echo(f"✓ {message}")
+
+        # Start scheduler
+        click.echo("Starting scheduler in background...")
+        scheduler.start()
+
+        # Show scheduled jobs
+        jobs = scheduler.get_scheduled_jobs()
+        click.echo(f"✓ Scheduler is now running with {len(jobs)} job(s)")
+        click.echo("\nScheduled jobs:")
+        for job in jobs:
+            click.echo(f"  - Next run: {job['next_run']}")
+
+        click.echo("\nScheduler is running in the background.")
+        click.echo("Keep this CLI running to maintain scheduled tweets.")
+        click.echo("Press Ctrl+C to stop the scheduler.\n")
+
+        # Keep running until interrupted
+        try:
+            while True:
+                import time
+                time.sleep(1)
+        except KeyboardInterrupt:
+            click.echo("\nStopping scheduler...")
+            scheduler.stop()
+            click.echo("✓ Scheduler stopped")
+
+    except RuntimeError as e:
+        click.echo(f"✗ Error: {e}", err=True)
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"✗ Unexpected error: {e}", err=True)
+        raise SystemExit(1)
+
+
+@cli.command()
+def auto_tweet_stats():
+    """
+    Show statistics about auto-tweeting activity.
+
+    Displays number of tweets posted and angles used.
+    """
+    try:
+        import sys
+        from pathlib import Path
+
+        # Add Auto-Tweet to path if not already there
+        auto_tweet_path = str(Path(__file__).parent.parent.parent / "Auto-Tweet")
+        if auto_tweet_path not in sys.path:
+            sys.path.insert(0, auto_tweet_path)
+
+        from auto_tweeter import AutoTweeter
+
+        auto_tweeter = AutoTweeter()
+        stats = auto_tweeter.get_stats()
+
+        click.echo("Auto-Tweet Statistics:")
+        click.echo(f"  Total tweets posted: {stats['total_tweets']}")
+        click.echo(f"  Total angles used: {stats['total_angles']}")
+        click.echo(f"  Recent tweets (last 10): {stats['recent_tweets']}")
+        click.echo(f"  Recent angles (last 10): {stats['recent_angles']}")
+
+        # Show recent tweets
+        recent = auto_tweeter.logger.get_recent_tweets(5)
+        if recent:
+            click.echo("\nRecent tweets:")
+            for tweet in recent:
+                text = tweet.get("text", "")[:60] + "..."
+                angle = tweet.get("angle", "N/A")
+                timestamp = tweet.get("timestamp", "")[:10]
+                click.echo(f"  [{timestamp}] {text}")
+                click.echo(f"    Angle: {angle}")
+
+    except Exception as e:
+        click.echo(f"✗ Error: {e}", err=True)
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     cli()

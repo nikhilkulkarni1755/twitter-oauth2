@@ -10,7 +10,9 @@ Post tweets from your terminal using Twitter's OAuth 2.0 Authorization Code Flow
 - **Automatic token refresh** - Access tokens are automatically refreshed when expired
 - **Secure storage** - Credentials stored with restricted file permissions (0o600)
 - **Simple CLI** - Easy-to-use command-line interface with Click
+- **HTTP Server** - Background OAuth 2.0 server for posting tweets via HTTP requests
 - **Agent-friendly** - Can be called from scripts and automation tools
+- **Interactive API docs** - Swagger UI for testing endpoints
 
 ## Prerequisites
 
@@ -71,6 +73,87 @@ uv pip install -e ".[media]"
    - `offline.access` - Access tokens refresh token
 
 ## Usage
+
+### Twitter OAuth2.0 Server
+
+Run a background HTTP server that accepts POST requests to post tweets. Perfect for:
+- RAG systems generating tweets
+- Multiple local services posting to a central OAuth endpoint
+- Scheduled tweet posting via HTTP requests
+
+**Start the server:**
+
+```bash
+python -m twitter_server
+```
+
+Server runs on `http://127.0.0.1:8000` by default. To use a different port:
+
+```bash
+python -m twitter_server 9000
+```
+
+Or to specify host and port:
+
+```bash
+python -m twitter_server 192.168.1.100 8000
+```
+
+**API endpoints:**
+
+```bash
+# Health check
+curl http://127.0.0.1:8000/health
+
+# Get server status and auth info
+curl http://127.0.0.1:8000/status
+
+# Post a text tweet (requires authentication)
+curl -X POST http://127.0.0.1:8000/tweet \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello from the server!"}'
+
+# Post a tweet with media
+curl -X POST http://127.0.0.1:8000/tweet-media \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Check this out!", "media_paths": ["/path/to/image.jpg"]}'
+
+# API docs (interactive Swagger UI)
+open http://127.0.0.1:8000/docs
+```
+
+**Usage in Python:**
+
+```python
+import requests
+
+# Post a tweet
+response = requests.post(
+    "http://127.0.0.1:8000/tweet",
+    json={"text": "Hello from Python!"}
+)
+
+if response.status_code == 200:
+    print(f"Tweet posted: {response.json()['tweet_id']}")
+else:
+    print(f"Error: {response.text}")
+```
+
+**Important:** The server uses the same OAuth 2.0 credentials as the CLI tool. You must authenticate first:
+
+```bash
+twitter-cli auth
+```
+
+Then the server can use those stored credentials automatically.
+
+**Testing the server:**
+
+Use the provided test client script:
+
+```bash
+python examples/test_server_client.py
+```
 
 ### First Time: Authenticate
 
@@ -188,6 +271,56 @@ twitter-cli logout-media
 This will:
 - Delete stored OAuth 1.0a credentials from `~/.twitter_cli/media_credentials.json`
 - Require you to run `twitter-cli auth-media` again to post media
+
+## Auto-Tweet: Automated Kubernetes Tweet Generation
+
+Generate and post creative tweets about Kubernetes automatically using a local Qwen LLM!
+
+### Quick Start
+
+```bash
+# Generate and post a single tweet (asks for confirmation)
+uv run twitter-cli auto-tweet-once
+
+# Generate and post 5 tweets automatically
+uv run twitter-cli auto-tweet-batch --count 5
+
+# Schedule tweets at specific times (9 AM, 12 PM, 3 PM, 6 PM)
+uv run twitter-cli auto-tweet-schedule --hours "9,12,15,18"
+
+# View tweet activity and statistics
+uv run twitter-cli auto-tweet-stats
+```
+
+### How It Works
+
+1. **Fetches random Kubernetes documentation** from official docs
+2. **Generates novel angles** using local Qwen LLM (via LMStudio)
+3. **Prevents duplicates** by tracking last 10 tweets and angles
+4. **Converts to tweets** ensuring 280 character limit
+5. **Posts to Twitter/X** with your existing OAuth credentials
+
+### Requirements
+
+- **LMStudio** running with Qwen model at `http://192.168.1.98:1234/v1`
+- **Already authenticated** with `twitter-cli auth`
+
+### Documentation
+
+- **[QUICKSTART_AUTO_TWEET.md](QUICKSTART_AUTO_TWEET.md)** - Get started in 5 minutes
+- **[AUTO_TWEET.md](AUTO_TWEET.md)** - Full feature documentation
+- **[AUTO_TWEET_CONFIG.md](AUTO_TWEET_CONFIG.md)** - Configuration and customization
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical details and architecture
+
+### Features
+
+✅ Local LLM (no API costs, fully private)
+✅ Novel angle generation (prevents repetition)
+✅ Hourly scheduling support
+✅ Tweet logging and analytics
+✅ Kubernetes doc integration
+✅ Single/batch/scheduled posting modes
+✅ Fully customizable (prompts, sources, timing)
 
 ## Usage in Scripts
 

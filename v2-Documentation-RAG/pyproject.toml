@@ -1,0 +1,14 @@
+[project]
+name = "v2-documentation-rag"
+version = "0.1.0"
+description = "Local RAG system for Kubernetes documentation (sub-package of twitter-cli)"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "faiss-cpu>=1.7.4",
+    "anthropic>=0.25.0",
+    "openai>=1.0.0",
+    "numpy>=1.24.0",
+    "gensim>=4.3.0,<4.4",
+]

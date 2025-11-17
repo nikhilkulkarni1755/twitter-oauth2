@@ -1,12 +1,23 @@
 [project]
 name = "twitter-cli"
 version = "0.1.0"
-description = "Post tweets from your terminal using OAuth 2.0 PKCE with optional media support"
+description = "Post tweets from your terminal using OAuth 2.0 PKCE with RAG-based content generation"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    # Twitter CLI
     "click>=8.1.7",
     "requests>=2.31.0",
+    "schedule>=1.2.0",
+    # Twitter Server
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.0.0",
+    # Auto-Tweet shared dependencies
+    "numpy>=1.24.0",
+    "beautifulsoup4>=4.12.0",
+    "anthropic>=0.25.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
